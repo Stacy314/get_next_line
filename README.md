@@ -60,7 +60,6 @@ Must be Norm-compliant and memory-leak free
 
 ## 📁 Example Usage
 ```c
-Копіювати код
 int fd = open("file.txt", O_RDONLY);
 char *line;
 
