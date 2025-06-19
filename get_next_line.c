@@ -6,41 +6,25 @@
 /*   By: apechkov <apechkov@student.42.fr>          +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/17 14:21:28 by apechkov          #+#    #+#             */
-/*   Updated: 2024/07/30 12:21:22 by apechkov         ###   ########.fr       */
+/*   Updated: 2025/06/19 21:26:10 by apechkov         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "get_next_line.h"
 
-void	*ft_calloc(size_t num, size_t size)
-{
-	char	*p;
-	size_t	len;
-	size_t	i;
+/* ************************************************************************** */
+/*                                                                            */
+/*                                                        :::      ::::::::   */
+/*   get_next_line.c                                    :+:      :+:    :+:   */
+/*                                                    +:+ +:+         +:+     */
+/*   By: apechkov <apechkov@student.42.fr>          +#+  +:+       +#+        */
+/*                                                +#+#+#+#+#+   +#+           */
+/*   Created: 2024/07/17 14:21:28 by apechkov          #+#    #+#             */
+/*   Updated: 2024/11/08 17:38:47 by apechkov         ###   ########.fr       */
+/*                                                                            */
+/* ************************************************************************** */
 
-	if (num && size > SIZE_MAX / num)
-		return (NULL);
-	len = size * num;
-	p = (char *)malloc(len);
-	if (!p)
-		return (NULL);
-	i = 0;
-	while (i < len)
-	{
-		p[i] = 0;
-		i++;
-	}
-	return (p);
-}
-
-void	clean(char **p)
-{
-	if (p && *p)
-	{
-		free(*p);
-		*p = NULL;
-	}
-}
+#include "../libft/libft.h"
 
 char	*ft_get_line(char **full_str)
 {
@@ -51,7 +35,7 @@ char	*ft_get_line(char **full_str)
 
 	if (!full_str || !*full_str)
 		return (NULL);
-	newline = ft_strchr(*full_str, '\n');
+	newline = ft_strchr_gnl(*full_str, '\n');
 	if (!newline)
 		return (str = ft_strdup(*full_str), clean(full_str), str);
 	else
@@ -60,7 +44,7 @@ char	*ft_get_line(char **full_str)
 		str = ft_calloc(new_line_len + 2, sizeof(char));
 		if (!str)
 			return (clean(full_str), NULL);
-		ft_strncpy(str, *full_str, new_line_len + 1);
+		ft_strlcpy(str, *full_str, new_line_len + 1);
 		temp = ft_strdup(*full_str + new_line_len + 1);
 		clean(full_str);
 		if (!temp)
@@ -70,27 +54,60 @@ char	*ft_get_line(char **full_str)
 	return (str);
 }
 
+char	*read_to_buffer(int fd, char **str)
+{
+	char	*buffer;
+	int		bytes_read;
+
+	buffer = ft_calloc(BUFFER_SIZE + 1, 1);
+	if (!buffer)
+		return (clean(str), NULL);
+	bytes_read = read(fd, buffer, BUFFER_SIZE);
+	if (bytes_read == -1)
+	{
+		clean(&buffer);
+		clean(str);
+		return (NULL);
+	}
+	if (bytes_read == 0)
+	{
+		clean(&buffer);
+		if (**str == '\0')
+			return (clean(str), NULL);
+		return (*str);
+	}
+	return (buffer);
+}
+
+char	*join_and_clean(char *str, char *buffer)
+{
+	char	*temp;
+
+	temp = str;
+	str = ft_strjoin(str, buffer);
+	clean(&buffer);
+	free(temp);
+	return (str);
+}
+
 char	*read_and_join(int fd, char *str)
 {
-	int		bytes_read;
 	char	*buffer;
 
+	if (!str)
+		str = ft_strdup("");
+	if (!str)
+		return (NULL);
 	while (!ft_strchr(str, '\n'))
 	{
-		buffer = ft_calloc(BUFFER_SIZE + 1, 1);
+		buffer = read_to_buffer(fd, &str);
 		if (!buffer)
-			return (clean(&str), clean(&buffer), NULL);
-		bytes_read = read(fd, buffer, BUFFER_SIZE);
-		if (bytes_read == -1)
-			return (clean(&buffer), clean(&str), NULL);
-		if (bytes_read == 0)
-		{
-			clean(&buffer);
-			if (str == NULL || *str == '\0')
-				return (clean(&str), NULL);
+			return (NULL);
+		if (buffer == str)
 			return (str);
-		}
-		str = ft_strjoin(str, buffer);
+		str = join_and_clean(str, buffer);
+		if (!str)
+			return (NULL);
 	}
 	return (str);
 }
@@ -101,7 +118,11 @@ char	*get_next_line(int fd)
 	char		*line;
 
 	if (fd < 0 || BUFFER_SIZE <= 0)
+	{
+		if (str)
+			free (str);
 		return (NULL);
+	}
 	str = read_and_join(fd, str);
 	if (!str)
 		return (clean(&str), NULL);
@@ -110,21 +131,3 @@ char	*get_next_line(int fd)
 		return (clean(&str), NULL);
 	return (line);
 }
-
-// #include <fcntl.h>
-// #include <stdio.h>
-// int main()
-// {
-// 	int fd = open("test", O_RDONLY);
-// 	char *line = get_next_line(fd);
-// 	while (line)
-// 	{
-// 		printf("%s", line);
-// 		if (!line)
-// 			return 0;
-// 		free(line);
-// 		line = get_next_line(fd);
-// 	}
-// 	close(fd);
-// 	return 0;
-// }
